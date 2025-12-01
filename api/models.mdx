@@ -1,0 +1,448 @@
+---
+title: "数据模型"
+description: "本文档介绍 Zephyrion 的核心数据模型类。"
+---
+
+## 导入
+
+```kotlin
+import com.faithl.zephyrion.core.models.*
+```
+
+---
+
+## Workspace (工作空间)
+
+工作空间是物品存储的顶级容器。
+
+### 属性
+
+| 属性          | 类型              | 说明               |
+| ----------- | --------------- | ---------------- |
+| `id`        | `Int`           | 工作空间 ID          |
+| `name`      | `String`        | 工作空间名称           |
+| `desc`      | `String?`       | 描述               |
+| `type`      | `WorkspaceType` | 类型               |
+| `owner`     | `String`        | 创建者 UUID         |
+| `members`   | `String`        | 成员列表（逗号分隔的 UUID） |
+| `createdAt` | `Long`          | 创建时间戳            |
+| `updatedAt` | `Long`          | 更新时间戳            |
+
+### WorkspaceType 枚举
+
+```kotlin
+enum class WorkspaceType {
+    PUBLIC,      // 公共工作空间 - 成员可访问
+    PRIVATE,     // 私有工作空间 - 仅创建者可访问
+    INDEPENDENT  // 独立工作空间 - 每人独立存储
+}
+```
+
+### 实例方法
+
+```kotlin
+// 获取格式化的创建时间
+fun getCreatedAt(): String
+
+// 获取格式化的更新时间
+fun getUpdatedAt(): String
+
+// 获取创建者（OfflinePlayer）
+fun getOwner(): OfflinePlayer
+
+// 获取所有成员
+fun getMembers(): List<OfflinePlayer>
+
+// 获取成员名称列表
+fun getMembersName(): List<String>
+
+// 检查是否为成员
+fun isMember(uuid: String): Boolean
+
+// 重命名工作空间
+fun rename(newName: String): ZephyrionAPI.Result
+
+// 更新描述
+fun updateDesc(newDesc: String?)
+
+// 删除工作空间
+fun delete()
+```
+
+### 示例
+
+```kotlin
+val workspace = ZephyrionAPI.getWorkspace(playerUUID, "MyWorkspace")
+if (workspace != null) {
+    println("名称: ${workspace.name}")
+    println("类型: ${workspace.type}")
+    println("创建者: ${workspace.getOwner().name}")
+    println("成员: ${workspace.getMembersName().joinToString(", ")}")
+    println("创建时间: ${workspace.getCreatedAt()}")
+    
+    // 检查玩家是否是成员
+    if (workspace.isMember(player.uniqueId.toString())) {
+        println("你是这个工作空间的成员")
+    }
+}
+```
+
+---
+
+## Vault (保险库)
+
+保险库归属于工作空间，用于存储物品。
+
+### 属性
+
+| 属性            | 类型        | 说明        |
+| ------------- | --------- | --------- |
+| `id`          | `Int`     | 保险库 ID    |
+| `name`        | `String`  | 保险库名称     |
+| `desc`        | `String?` | 描述        |
+| `workspaceId` | `Int`     | 所属工作空间 ID |
+| `size`        | `Int`     | 当前容量（槽位数） |
+| `createdAt`   | `Long`    | 创建时间戳     |
+| `updatedAt`   | `Long`    | 更新时间戳     |
+
+### 计算属性
+
+```kotlin
+// 获取所属工作空间
+val workspace: Workspace
+```
+
+### 实例方法
+
+```kotlin
+// 获取格式化的创建时间
+fun getCreatedAt(): String
+
+// 获取格式化的更新时间
+fun getUpdatedAt(): String
+
+// 获取最大页数
+fun getMaxPage(): Int
+
+// 增加容量（消耗配额）
+fun addSize(add: Int): Boolean
+
+// 减少容量（返还配额）
+fun removeSize(remove: Int): Boolean
+
+// 重命名保险库
+fun rename(newName: String): ZephyrionAPI.Result
+
+// 更新描述
+fun updateDesc(newDesc: String?)
+
+// 删除保险库
+fun delete(): Boolean
+```
+
+### 容量计算
+
+每页 36 个槽位，最大页数计算：
+
+```kotlin
+val maxPage = ceil(size.toDouble() / 36).toInt()
+// 至少为 1 页
+```
+
+### 示例
+
+```kotlin
+val vaults = ZephyrionAPI.getVaults(workspace)
+vaults.forEach { vault ->
+    println("保险库: ${vault.name}")
+    println("容量: ${vault.size} 槽位 (${vault.getMaxPage()} 页)")
+    println("工作空间: ${vault.workspace.name}")
+    
+    // 扩展容量
+    if (vault.addSize(36)) {
+        println("成功扩展 36 个槽位")
+    }
+}
+```
+
+---
+
+## Item (物品)
+
+存储在保险库中的物品数据。
+
+### 属性
+
+| 属性                    | 类型        | 说明                |
+| --------------------- | --------- | ----------------- |
+| `id`                  | `Int`     | 物品记录 ID           |
+| `vaultId`             | `Int`     | 所属保险库 ID          |
+| `page`                | `Int`     | 页码                |
+| `owner`               | `String?` | 所有者 UUID（独立工作空间用） |
+| `slot`                | `Int`     | 槽位 (0-35)         |
+| `itemStackSerialized` | `String`  | 序列化的物品数据（Base64）  |
+
+### 计算属性
+
+```kotlin
+// 获取/设置 ItemStack
+var itemStack: ItemStack
+
+// 获取所属保险库
+val vault: Vault
+```
+
+### 实例方法
+
+```kotlin
+// 获取物品名称
+fun getName(): String
+
+// 获取物品 Lore
+fun getLore(): List<String>
+```
+
+### ItemStack 序列化扩展
+
+```kotlin
+// 序列化为 Base64
+fun ItemStack.toBase64(): String
+
+// 从 Base64 反序列化
+fun String.base64ToItemStack(): ItemStack
+```
+
+### 示例
+
+```kotlin
+// 获取物品列表
+val items = ZephyrionAPI.getItems(vault, page = 1, player)
+items.forEach { item ->
+    println("槽位 ${item.slot}: ${item.getName()}")
+    println("Lore: ${item.getLore().joinToString(", ")}")
+    
+    // 获取实际的 ItemStack
+    val itemStack = item.itemStack
+    println("类型: ${itemStack.type}, 数量: ${itemStack.amount}")
+}
+
+// 搜索物品
+val diamonds = ZephyrionAPI.searchItemsByName(vault, "钻石")
+diamonds.forEach { item ->
+    println("找到钻石在 第${item.page}页 槽位${item.slot}")
+}
+```
+
+---
+
+## Quota (配额)
+
+玩家的配额数据。
+
+### 属性
+
+| 属性                | 类型        | 说明         |
+| ----------------- | --------- | ---------- |
+| `id`              | `Int`     | 记录 ID      |
+| `player`          | `String`  | 玩家 UUID    |
+| `workspaceQuotas` | `Int`     | 工作空间配额上限   |
+| `workspaceUsed`   | `Int`     | 已使用的工作空间数量 |
+| `sizeQuotas`      | `Int`     | 存储配额上限     |
+| `sizeUsed`        | `Int`     | 已使用的存储槽位   |
+| `unlimited`       | `Boolean` | 是否无限容量     |
+
+### 示例
+
+```kotlin
+val quota = ZephyrionAPI.getUserData(player.uniqueId.toString())
+
+println("工作空间: ${quota.workspaceUsed}/${quota.workspaceQuotas}")
+println("存储容量: ${quota.sizeUsed}/${quota.sizeQuotas}")
+println("无限容量: ${if (quota.unlimited) "是" else "否"}")
+
+// 检查是否可以创建工作空间
+val canCreateWorkspace = quota.workspaceUsed < quota.workspaceQuotas
+
+// 计算剩余存储空间
+val remainingSize = if (quota.unlimited) Int.MAX_VALUE else quota.sizeQuotas - quota.sizeUsed
+```
+
+---
+
+## AutoPickup (自动拾取规则)
+
+保险库的自动拾取配置。
+
+### 属性
+
+| 属性          | 类型               | 说明       |
+| ----------- | ---------------- | -------- |
+| `id`        | `Int`            | 规则 ID    |
+| `type`      | `AutoPickupType` | 规则类型     |
+| `value`     | `String`         | 规则值      |
+| `vaultId`   | `Int`            | 所属保险库 ID |
+| `createdAt` | `Long`           | 创建时间戳    |
+| `updatedAt` | `Long`           | 更新时间戳    |
+
+### AutoPickupType 枚举
+
+```kotlin
+enum class AutoPickupType {
+    ITEM_PICKUP,      // 拾取规则 - 匹配的物品自动存入
+    ITEM_NOT_PICKUP   // 不拾取规则 - 匹配的物品不会拾取
+}
+```
+
+### 计算属性
+
+```kotlin
+// 获取所属保险库
+val vault: Vault
+```
+
+### 实例方法
+
+```kotlin
+// 删除规则
+fun deleteRule(): Boolean
+
+// 更新规则值
+fun updateValue(newValue: String): ZephyrionAPI.Result
+```
+
+### 规则值格式
+
+| 前缀            | 格式                  | 说明         |
+| ------------- | ------------------- | ---------- |
+| `type:`       | `type:DIAMOND`      | 匹配材料类型     |
+| `name:`       | `name:钻石剑`          | 匹配名称包含     |
+| `lore:`       | `lore:稀有`           | 匹配 Lore 包含 |
+| `regex:`      | `regex:.*钻石.*`      | 正则匹配名称     |
+| `regex-lore:` | `regex-lore:.*传说.*` | 正则匹配 Lore  |
+| (无前缀)         | `钻石`                | 默认匹配名称包含   |
+
+### 示例
+
+```kotlin
+// 获取所有规则
+val rules = ZephyrionAPI.getAutoPickups(vault)
+rules.forEach { rule ->
+    val typeStr = when (rule.type) {
+        AutoPickupType.ITEM_PICKUP -> "拾取"
+        AutoPickupType.ITEM_NOT_PICKUP -> "不拾取"
+    }
+    println("[$typeStr] ${rule.value}")
+}
+
+// 创建拾取钻石的规则
+ZephyrionAPI.createAutoPickup(
+    vault = vault,
+    type = AutoPickupType.ITEM_PICKUP,
+    value = "type:DIAMOND"
+)
+
+// 创建不拾取圆石的规则
+ZephyrionAPI.createAutoPickup(
+    vault = vault,
+    type = AutoPickupType.ITEM_NOT_PICKUP,
+    value = "type:COBBLESTONE"
+)
+
+// 检查物品是否应该拾取
+val item = ItemStack(Material.DIAMOND, 1)
+when (ZephyrionAPI.shouldAutoPickup(item, vault)) {
+    true -> println("物品将被自动拾取")
+    false -> println("物品被排除")
+    null -> println("无匹配规则")
+}
+```
+
+---
+
+## Setting (设置)
+
+保险库的设置数据。
+
+### 静态方法
+
+```kotlin
+// 创建设置
+fun create(vault: Vault, setting: String, value: String)
+```
+
+---
+
+## 关系图
+
+```
+Player
+  └── Quota (1:1)
+  └── Workspace (1:N, 通过 members)
+        └── Vault (1:N)
+              └── Item (1:N)
+              └── AutoPickup (1:N)
+              └── Setting (1:N)
+```
+
+---
+
+## 数据库表结构
+
+### quotas 表
+
+| 字段               | 类型      | 说明      |
+| ---------------- | ------- | ------- |
+| id               | INT     | 主键      |
+| player           | VARCHAR | 玩家 UUID |
+| workspace_quotas | INT     | 工作空间配额  |
+| workspace_used   | INT     | 已用工作空间数 |
+| size_quotas      | INT     | 存储配额    |
+| size_used        | INT     | 已用存储数   |
+| unlimited        | BOOLEAN | 无限容量标记  |
+
+### workspaces 表
+
+| 字段          | 类型      | 说明       |
+| ----------- | ------- | -------- |
+| id          | INT     | 主键       |
+| name        | VARCHAR | 名称       |
+| description | TEXT    | 描述       |
+| type        | VARCHAR | 类型       |
+| owner       | VARCHAR | 创建者 UUID |
+| members     | TEXT    | 成员列表     |
+| created_at  | BIGINT  | 创建时间     |
+| updated_at  | BIGINT  | 更新时间     |
+
+### vaults 表
+
+| 字段           | 类型      | 说明      |
+| ------------ | ------- | ------- |
+| id           | INT     | 主键      |
+| name         | VARCHAR | 名称      |
+| description  | TEXT    | 描述      |
+| workspace_id | INT     | 工作空间 ID |
+| size         | INT     | 容量      |
+| created_at   | BIGINT  | 创建时间    |
+| updated_at   | BIGINT  | 更新时间    |
+
+### items 表
+
+| 字段         | 类型      | 说明       |
+| ---------- | ------- | -------- |
+| id         | INT     | 主键       |
+| vault_id   | INT     | 保险库 ID   |
+| page       | INT     | 页码       |
+| owner      | VARCHAR | 所有者 UUID |
+| slot       | INT     | 槽位       |
+| item_stack | TEXT    | 序列化物品    |
+
+### auto_pickups 表
+
+| 字段         | 类型      | 说明     |
+| ---------- | ------- | ------ |
+| id         | INT     | 主键     |
+| type       | VARCHAR | 规则类型   |
+| value      | VARCHAR | 规则值    |
+| vault_id   | INT     | 保险库 ID |
+| created_at | BIGINT  | 创建时间   |
+| updated_at | BIGINT  | 更新时间   |

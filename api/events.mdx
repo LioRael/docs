@@ -1,0 +1,322 @@
+---
+title: "事件系统"
+description: "Zephyrion 提供了一系列自定义事件，允许其他插件监听和响应保险库操作。所有事件都继承自 TabooLib 的 BukkitProxyEvent。"
+---
+
+## 导入
+
+```kotlin
+import com.faithl.zephyrion.api.events.*
+import taboolib.common.platform.event.SubscribeEvent
+```
+
+## 事件列表
+
+| 事件类                     | 说明          | 可取消 |
+| ----------------------- | ----------- | --- |
+| `VaultOpenEvent`        | 保险库打开时触发    | 否   |
+| `VaultCloseEvent`       | 保险库关闭时触发    | 否   |
+| `VaultAddItemEvent`     | 物品添加到保险库时触发 | 否   |
+| `VaultRemoveItemEvent`  | 物品从保险库移除时触发 | 否   |
+| `VaultSearchOpenEvent`  | 搜索模式打开时触发   | 否   |
+| `VaultSearchCloseEvent` | 搜索模式关闭时触发   | 否   |
+
+---
+
+## VaultOpenEvent
+
+当玩家打开保险库时触发。
+
+### 属性
+
+| 属性          | 类型          | 说明                |
+| ----------- | ----------- | ----------------- |
+| `vault`     | `Vault`     | 被打开的保险库           |
+| `page`      | `Int`       | 当前页码              |
+| `inventory` | `Inventory` | 保险库的 Inventory 对象 |
+| `opener`    | `Player`    | 打开保险库的玩家          |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onVaultOpen(event: VaultOpenEvent) {
+    val player = event.opener
+    val vault = event.vault
+    val workspace = vault.workspace
+    
+    player.sendMessage("你打开了 ${workspace.name} 的 ${vault.name}")
+    player.sendMessage("当前页码: ${event.page}")
+}
+```
+
+---
+
+## VaultCloseEvent
+
+当玩家关闭保险库时触发。
+
+### 属性
+
+| 属性       | 类型       | 说明       |
+| -------- | -------- | -------- |
+| `vault`  | `Vault`  | 被关闭的保险库  |
+| `page`   | `Int`    | 关闭时的页码   |
+| `closer` | `Player` | 关闭保险库的玩家 |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onVaultClose(event: VaultCloseEvent) {
+    val player = event.closer
+    player.sendMessage("你关闭了保险库 ${event.vault.name}")
+}
+```
+
+---
+
+## VaultAddItemEvent
+
+当物品被添加到保险库时触发。
+
+### 属性
+
+| 属性          | 类型          | 说明        |
+| ----------- | ----------- | --------- |
+| `vault`     | `Vault`     | 目标保险库     |
+| `page`      | `Int`       | 页码        |
+| `slot`      | `Int`       | 槽位 (0-35) |
+| `itemStack` | `ItemStack` | 被添加的物品    |
+| `operator`  | `Player?`   | 操作者（可能为空） |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onItemAdd(event: VaultAddItemEvent) {
+    val item = event.itemStack
+    val vault = event.vault
+    
+    // 记录物品存储日志
+    println("[Zephyrion] ${event.operator?.name ?: "系统"} 将 ${item.type} x${item.amount} 存入 ${vault.name}")
+    
+    // 统计存储的物品
+    if (item.type == Material.DIAMOND) {
+        // 处理钻石存储
+    }
+}
+```
+
+### 用途示例
+
+**物品存储统计：**
+
+```kotlin
+@SubscribeEvent
+fun onItemAdd(event: VaultAddItemEvent) {
+    val player = event.operator ?: return
+    val item = event.itemStack
+    
+    // 记录到数据库或日志
+    logStorage(player.uniqueId, event.vault.id, item.type, item.amount)
+}
+```
+
+---
+
+## VaultRemoveItemEvent
+
+当物品从保险库被移除时触发。
+
+### 属性
+
+| 属性         | 类型        | 说明        |
+| ---------- | --------- | --------- |
+| `vault`    | `Vault`   | 目标保险库     |
+| `page`     | `Int`     | 页码        |
+| `slot`     | `Int`     | 槽位 (0-35) |
+| `operator` | `Player?` | 操作者（可能为空） |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onItemRemove(event: VaultRemoveItemEvent) {
+    val player = event.operator
+    println("[Zephyrion] ${player?.name ?: "系统"} 从 ${event.vault.name} 取出了物品")
+}
+```
+
+---
+
+## VaultSearchOpenEvent
+
+当玩家打开保险库搜索模式时触发。
+
+### 属性
+
+| 属性          | 类型                    | 说明             |
+| ----------- | --------------------- | -------------- |
+| `vault`     | `Vault`               | 搜索的保险库         |
+| `params`    | `Map<String, String>` | 搜索参数           |
+| `inventory` | `Inventory`           | 搜索结果 Inventory |
+| `opener`    | `Player`              | 执行搜索的玩家        |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onSearchOpen(event: VaultSearchOpenEvent) {
+    val player = event.opener
+    val params = event.params
+    
+    player.sendMessage("搜索条件:")
+    params.forEach { (key, value) ->
+        player.sendMessage("  $key: $value")
+    }
+}
+```
+
+---
+
+## VaultSearchCloseEvent
+
+当玩家关闭搜索模式时触发。
+
+### 属性
+
+| 属性       | 类型       | 说明      |
+| -------- | -------- | ------- |
+| `vault`  | `Vault`  | 搜索的保险库  |
+| `closer` | `Player` | 关闭搜索的玩家 |
+
+### 示例
+
+```kotlin
+@SubscribeEvent
+fun onSearchClose(event: VaultSearchCloseEvent) {
+    val player = event.closer
+    player.sendMessage("搜索模式已关闭")
+}
+```
+
+---
+
+## 完整监听示例
+
+```kotlin
+import com.faithl.zephyrion.api.events.*
+import org.bukkit.Material
+import taboolib.common.platform.event.SubscribeEvent
+
+object ZephyrionListener {
+
+    @SubscribeEvent
+    fun onVaultOpen(event: VaultOpenEvent) {
+        // 记录打开日志
+        val log = "[OPEN] ${event.opener.name} -> ${event.vault.workspace.name}/${event.vault.name}"
+        println(log)
+    }
+    
+    @SubscribeEvent
+    fun onVaultClose(event: VaultCloseEvent) {
+        // 记录关闭日志
+        val log = "[CLOSE] ${event.closer.name} -> ${event.vault.name}"
+        println(log)
+    }
+    
+    @SubscribeEvent
+    fun onItemAdd(event: VaultAddItemEvent) {
+        val item = event.itemStack
+        val operator = event.operator?.name ?: "SYSTEM"
+        
+        // 检测贵重物品存储
+        if (item.type == Material.DIAMOND_BLOCK || item.type == Material.NETHERITE_INGOT) {
+            println("[VALUABLE] $operator 存储了 ${item.type} x${item.amount}")
+        }
+    }
+    
+    @SubscribeEvent
+    fun onItemRemove(event: VaultRemoveItemEvent) {
+        val operator = event.operator?.name ?: "SYSTEM"
+        println("[REMOVE] $operator 从 ${event.vault.name} 取出物品 (${event.page}:${event.slot})")
+    }
+    
+    @SubscribeEvent
+    fun onSearchOpen(event: VaultSearchOpenEvent) {
+        val params = event.params.entries.joinToString(", ") { "${it.key}=${it.value}" }
+        println("[SEARCH] ${event.opener.name} 搜索 ${event.vault.name}: $params")
+    }
+}
+```
+
+## 使用场景
+
+### 1. 物品交易日志
+
+```kotlin
+@SubscribeEvent
+fun onItemAdd(event: VaultAddItemEvent) {
+    val player = event.operator ?: return
+    saveTransactionLog(
+        player = player.uniqueId,
+        vault = event.vault.id,
+        action = "DEPOSIT",
+        item = event.itemStack.type.name,
+        amount = event.itemStack.amount
+    )
+}
+
+@SubscribeEvent
+fun onItemRemove(event: VaultRemoveItemEvent) {
+    val player = event.operator ?: return
+    saveTransactionLog(
+        player = player.uniqueId,
+        vault = event.vault.id,
+        action = "WITHDRAW",
+        slot = event.slot
+    )
+}
+```
+
+### 2. 物品存储限制
+
+```kotlin
+// 注意：当前事件不可取消，此示例仅作参考
+// 实际限制需要通过其他方式实现
+
+@SubscribeEvent
+fun onItemAdd(event: VaultAddItemEvent) {
+    val item = event.itemStack
+    
+    // 检测禁止存储的物品
+    if (isBannedItem(item)) {
+        event.operator?.sendMessage("此物品不允许存储到保险库！")
+        // 由于事件不可取消，需要在下一 tick 移除物品
+        submitAsync {
+            ZephyrionAPI.removeItem(event.vault, event.page, event.slot, event.operator)
+        }
+    }
+}
+```
+
+### 3. 数据统计
+
+```kotlin
+@SubscribeEvent
+fun onVaultOpen(event: VaultOpenEvent) {
+    // 统计保险库访问次数
+    incrementVaultAccess(event.vault.id)
+    
+    // 记录玩家活跃度
+    updatePlayerActivity(event.opener.uniqueId)
+}
+```
+
+## 注意事项
+
+1. **事件不可取消**：所有 Zephyrion 事件的 `allowCancelled` 都是 `false`，无法取消事件
+2. **异步安全**：事件可能在异步线程触发，访问 Bukkit API 时注意线程安全
+3. **operator 可能为空**：系统操作（如自动拾取）时 operator 可能为 null
+4. **性能考虑**：避免在事件处理中进行耗时操作

@@ -1,0 +1,292 @@
+---
+title: "配额系统"
+description: "配额系统用于限制玩家可使用的资源数量。"
+---
+
+## 配额类型
+
+### 工作空间配额
+
+限制玩家可以创建的工作空间数量。
+
+| 属性   | 说明           |
+| ---- | ------------ |
+| 配额上限 | 最多可创建的工作空间数量 |
+| 已使用  | 当前已创建的工作空间数量 |
+| 可用   | 配额上限 - 已使用   |
+
+### 存储配额
+
+限制玩家可以使用的总存储槽位数量。
+
+| 属性   | 说明              |
+| ---- | --------------- |
+| 配额上限 | 最多可解锁的槽位总数      |
+| 已使用  | 当前所有保险库已解锁的槽位总和 |
+| 可用   | 配额上限 - 已使用      |
+
+### 无限容量
+
+开启后，存储配额不受限制。
+
+- `true`：无限存储，可以解锁任意数量的槽位
+- `false`：受存储配额限制
+
+> 无限容量不影响工作空间配额
+
+## 查看配额
+
+### 命令
+
+```
+/ze quota
+```
+
+### 输出示例
+
+```
+========== 你的配额信息 ==========
+工作空间: 2/3
+容量: 150/500
+无限容量: 否
+```
+
+### 字段说明
+
+- **工作空间: 2/3** - 已创建 2 个工作空间，最多可创建 3 个
+- **容量: 150/500** - 已解锁 150 个槽位，最多可解锁 500 个
+- **无限容量: 否** - 受容量配额限制
+
+## 配额来源
+
+### 默认配额
+
+服务器配置的所有玩家默认配额：
+
+```yaml
+# settings.yml
+user:
+  default-quotas:
+    unlimited: false
+    workspace: 1
+    size: 200
+```
+
+### 权限组配额
+
+通过权限获得的配额，会覆盖默认配额：
+
+```yaml
+# settings.yml
+user:
+  vip:
+    unlimited: false
+    workspace: 3
+    size: 500
+```
+
+```yaml
+# permissions.yml
+user:
+  quotas:
+    vip: zephyrion.user.quotas.vip
+```
+
+拥有 `zephyrion.user.quotas.vip` 权限的玩家会自动获得 VIP 配额。
+
+### 手动设置
+
+管理员可以通过命令为玩家设置自定义配额，优先级最高。
+
+## 配额管理命令
+
+> 以下命令需要 `zephyrion.command.quota.edit` 权限
+
+### 查看其他玩家配额
+
+```
+/ze quota <玩家名>
+```
+
+需要 `zephyrion.command.quota.other` 权限。
+
+### 设置配额
+
+```
+/ze quota <玩家名> set <类型> <值>
+```
+
+**类型选项：**
+
+- `workspace` - 工作空间配额
+- `size` - 存储配额
+- `unlimited` - 无限容量 (`true`/`false`)
+
+**示例：**
+
+```
+/ze quota Steve set workspace 5
+/ze quota Steve set size 1000
+/ze quota Steve set unlimited true
+```
+
+### 增加配额
+
+```
+/ze quota <玩家名> add <类型> <数量>
+```
+
+**示例：**
+
+```
+/ze quota Steve add workspace 2    # 工作空间配额 +2
+/ze quota Steve add size 100       # 存储配额 +100
+```
+
+### 减少配额
+
+```
+/ze quota <玩家名> remove <类型> <数量>
+```
+
+**限制：** 减少后的配额不能小于已使用量。
+
+**示例：**
+
+```
+/ze quota Steve remove workspace 1  # 工作空间配额 -1
+/ze quota Steve remove size 50      # 存储配额 -50
+```
+
+### 重置配额
+
+```
+/ze quota <玩家名> reset
+```
+
+将玩家配额重置为默认值（由权限组或默认配额决定）。
+
+## 配额消耗
+
+### 创建工作空间
+
+- 消耗 1 点工作空间配额
+- 删除工作空间后返还
+
+### 解锁保险库槽位
+
+- 每个槽位消耗 1 点存储配额
+- 删除保险库后返还所有已解锁槽位的配额
+
+## 配额检查
+
+### 创建工作空间时
+
+```
+如果 已使用工作空间数 >= 工作空间配额:
+    创建失败，提示"配额已满"
+否则:
+    创建成功，已使用 +1
+```
+
+### 解锁槽位时
+
+```
+如果 无限容量 == true:
+    直接解锁
+否则 如果 已使用存储 + 解锁数量 > 存储配额:
+    解锁失败，提示"配额不足"
+否则:
+    解锁成功，已使用 + 解锁数量
+```
+
+## 配额权限组设计建议
+
+### 示例：多级会员系统
+
+```yaml
+# settings.yml
+user:
+  default-quotas:
+    unlimited: false
+    workspace: 1
+    size: 100
+  
+  bronze:
+    unlimited: false
+    workspace: 2
+    size: 300
+  
+  silver:
+    unlimited: false
+    workspace: 3
+    size: 500
+  
+  gold:
+    unlimited: false
+    workspace: 5
+    size: 1000
+  
+  diamond:
+    unlimited: true
+    workspace: 10
+    size: 0  # 无限容量时此值无效
+```
+
+```yaml
+# permissions.yml
+user:
+  quotas:
+    bronze: zephyrion.user.quotas.bronze
+    silver: zephyrion.user.quotas.silver
+    gold: zephyrion.user.quotas.gold
+    diamond: zephyrion.user.quotas.diamond
+```
+
+### 权限设置
+
+使用 LuckPerms 或其他权限插件为玩家组设置权限：
+
+```
+/lp group bronze permission set zephyrion.user.quotas.bronze
+/lp group silver permission set zephyrion.user.quotas.silver
+/lp group gold permission set zephyrion.user.quotas.gold
+/lp group diamond permission set zephyrion.user.quotas.diamond
+```
+
+## 常见问题
+
+### Q: 配额显示的数值和实际不符？
+
+A: 可能原因：
+
+1. 权限组变更后需要重新登录
+2. 管理员手动设置了配额
+3. 缓存未更新，执行 `/ze reload`
+
+### Q: 删除工作空间/保险库后配额没有返还？
+
+A: 正常情况下会自动返还。如果没有：
+
+1. 检查数据库是否正常
+2. 执行 `/ze reload` 刷新缓存
+3. 联系管理员手动调整
+
+### Q: 如何给玩家无限配额？
+
+A: 管理员执行：
+
+```
+/ze quota <玩家名> set unlimited true
+```
+
+### Q: 配额系统可以关闭吗？
+
+A: 目前不支持完全关闭。可以通过设置极大的默认配额来模拟：
+
+```yaml
+user:
+  default-quotas:
+    unlimited: true
+    workspace: 9999
+```

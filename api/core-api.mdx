@@ -1,0 +1,618 @@
+---
+title: "核心 API"
+description: "ZephyrionAPI 是 Zephyrion 插件对外暴露的主要 API 接口，提供所有核心功能的访问方法。"
+---
+
+## 导入
+
+```kotlin
+import com.faithl.zephyrion.api.ZephyrionAPI
+import com.faithl.zephyrion.core.models.\*
+```
+
+## Result 类
+
+```kotlin
+class Result(val success: Boolean, val reason: String? = null)
+```
+
+大多数写操作返回此类型`success` 表示操作是否成功`reason` 包含失败原因。
+
+---
+
+## 用户数据 API
+
+### getUserData
+
+获取玩家的配额数据。
+
+```kotlin
+fun getUserData(playerUniqueId: String): Quota
+```
+
+**参数：**
+
+- `playerUniqueId` - 玩家 UUID 字符串
+
+**返回：**
+
+- `Quota` 对象，包含工作空间配额、存储配额等信息
+
+**示例：**
+
+```kotlin
+val quota = ZephyrionAPI.getUserData(player.uniqueId.toString())
+
+println("工作空间: \${quota.workspaceUsed}/\${quota.workspaceQuotas}")
+println("存储容量: \${quota.sizeUsed}/\${quota.sizeQuotas}")
+println("无限容量: \${quota.unlimited}")
+```
+
+### isPluginAdmin
+
+检查玩家是否为插件管理员。
+
+```kotlin
+fun isPluginAdmin(opener: Player): Boolean
+```
+
+---
+
+## 工作空间 API
+
+### getJoinedWorkspaces
+
+获取玩家加入的所有工作空间。
+
+```kotlin
+fun getJoinedWorkspaces(player: Player): List\<Workspace\>
+```
+
+**示例：**
+
+```kotlin
+val workspaces = ZephyrionAPI.getJoinedWorkspaces(player)
+
+workspaces.forEach { ws -\>
+    println("\${[ws.name](http://ws.name)} (\${ws.type})")
+}
+```
+
+### getIndependentWorkspace
+
+获取独立工作空间（如果启用）。
+
+```kotlin
+fun getIndependentWorkspace(): Workspace?
+```
+
+**返回：**
+
+- 独立工作空间对象，如果未启用返回 `null`
+
+### getWorkspace
+
+根据玩家和名称获取工作空间。
+
+```kotlin
+fun getWorkspace(player: String, name: String): Workspace?
+```
+
+**参数：**
+
+- `player` - 玩家 UUID 字符串
+- `name` - 工作空间名称
+
+### validateWorkspaceName
+
+验证工作空间名称是否有效。
+
+```kotlin
+fun validateWorkspaceName(name: String?, owner: String): Result
+```
+
+**验证规则：**
+
+- 不能为空或包含空格
+- 长度在配置的范围内（默认 3-16）
+- 不在黑名单中
+- 同一玩家下不能重名
+- 颜色代码检查（如果禁用）
+
+**可能的错误码：**
+
+- `workspace_name_invalid`
+- `workspace_name_color`
+- `workspace_name_blacklist`
+- `workspace_name_length`
+- `workspace_already_exists`
+
+### createWorkspace
+
+创建新的工作空间。
+
+```kotlin
+fun createWorkspace(
+    owner: String, 
+    name: String?, 
+    type: WorkspaceType?, 
+    desc: String?
+): Result
+```
+
+**参数：**
+
+- `owner` - 创建者 UUID 字符串
+- `name` - 工作空间名称
+- `type` - 工作空间类型 `PUBLIC`, `PRIVATE`, `INDEPENDENT`)
+- `desc` - 描述（可选）
+
+**示例：**
+
+```kotlin
+val result = ZephyrionAPI.createWorkspace(
+    owner = player.uniqueId.toString(),
+    name = "我的工作空间",
+    type = WorkspaceType.PRIVATE,
+    desc = "私人存储空间"
+)
+
+if (result.success) {
+    player.sendMessage("创建成功！")
+} else {
+    when (result.reason) {
+        "workspace_quota_exceeded" -\> player.sendMessage("配额已满")
+        "workspace_already_exists" -\> player.sendMessage("名称已存在")
+        else -\> player.sendMessage("创建失败: \${result.reason}")
+    }
+}
+```
+
+### addMember
+
+添加成员到工作空间。
+
+```kotlin
+fun addMember(workspace: Workspace, player: Player): Boolean
+```
+
+**返回：**
+
+- `true` 添加成功
+- `false` 玩家已是成员
+
+### removeMember
+
+从工作空间移除成员。
+
+```kotlin
+fun removeMember(workspace: Workspace, player: OfflinePlayer): Boolean
+```
+
+**返回：**
+
+- `true` 移除成功
+- `false` 无法移除（不是成员或是创建者）
+
+### updateWorkspaceDesc
+
+更新工作空间描述。
+
+```kotlin
+fun updateWorkspaceDesc(workspace: Workspace, desc: String?)
+```
+
+### deleteWorkspace
+
+删除工作空间及其所有保险库。
+
+```kotlin
+fun deleteWorkspace(workspace: Workspace)
+```
+
+---
+
+## 保险库 API
+
+### getVaults
+
+获取工作空间下的所有保险库。
+
+```kotlin
+fun getVaults(workspace: Workspace): List\<Vault\>
+```
+
+### getVault
+
+获取指定名称的保险库。
+
+```kotlin
+fun getVault(workspace: Workspace, name: String): Vault?
+```
+
+### validateVaultName
+
+验证保险库名称是否有效。
+
+```kotlin
+fun validateVaultName(name: String?, workspace: Workspace): Result
+```
+
+### createVault
+
+创建新的保险库。
+
+```kotlin
+fun createVault(
+    workspace: Workspace, 
+    name: String?, 
+    desc: String? = null
+): Result
+```
+
+**示例：**
+
+```kotlin
+val result = ZephyrionAPI.createVault(
+    workspace = workspace,
+    name = "矿石仓库",
+    desc = "存放矿石和宝石"
+)
+```
+
+### addSize
+
+增加保险库容量。
+
+```kotlin
+fun addSize(vault: Vault, size: Int): Boolean
+```
+
+**参数：**
+
+- `vault` - 保险库对象
+- `size` - 要增加的槽位数量
+
+**返回：**
+
+- `true` 成功
+- `false` 配额不足
+
+**示例：**
+
+```kotlin
+if (ZephyrionAPI.addSize(vault, 36)) {
+    player.sendMessage("成功解锁 36 个槽位！")
+} else {
+    player.sendMessage("配额不足，无法解锁")
+}
+```
+
+### removeSize
+
+减少保险库容量。
+
+```kotlin
+fun removeSize(vault: Vault, size: Int): Boolean
+```
+
+### updateVaultDesc
+
+更新保险库描述。
+
+```kotlin
+fun updateVaultDesc(vault: Vault, desc: String?)
+```
+
+### deleteVault
+
+删除保险库及其所有物品。
+
+```kotlin
+fun deleteVault(vault: Vault): Boolean
+```
+
+---
+
+## 物品 API
+
+### getItems
+
+获取保险库指定页的物品。
+
+```kotlin
+fun getItems(vault: Vault, page: Int, player: Player): List\<Item\>
+```
+
+**参数：**
+
+- `vault` - 保险库对象
+- `page` - 页码（从 1 开始）
+- `player` - 玩家（用于独立工作空间判断）
+
+### setItem
+
+在保险库中设置物品。
+
+```kotlin
+fun setItem(
+    vault: Vault, 
+    page: Int, 
+    slot: Int, 
+    itemStack: ItemStack, 
+    player: Player? = null
+)
+```
+
+**参数：**
+
+- `vault` - 保险库对象
+- `page` - 页码
+- `slot` - 槽位（0-35）
+- `itemStack` - 物品
+- `player` - 操作者（独立工作空间需要）
+
+**示例：**
+
+```kotlin
+ZephyrionAPI.setItem(vault, 1, 0, ItemStack(Material.DIAMOND, 64), player)
+```
+
+### removeItem
+
+从保险库移除物品。
+
+```kotlin
+fun removeItem(vault: Vault, page: Int, slot: Int, player: Player? = null)
+```
+
+### searchItemsByName
+
+按名称搜索物品。
+
+```kotlin
+fun searchItemsByName(vault: Vault, name: String): List\<Item\>
+```
+
+### searchItemsByLore
+
+按 Lore 搜索物品。
+
+```kotlin
+fun searchItemsByLore(vault: Vault, lore: String): List\<Item\>
+```
+
+### searchItems
+
+组合条件搜索物品。
+
+```kotlin
+fun searchItems(
+    vault: Vault, 
+    params: Map\<String, String\>, 
+    player: Player? = null
+): List<Item>
+```
+
+**参数：**
+
+- `params` - 搜索条件，支持 `name` 和 `lore` 键
+
+**示例：**
+
+```kotlin
+val items = ZephyrionAPI.searchItems(
+    vault = vault,
+    params = mapOf(
+        "name" to "钻石",
+        "lore" to "稀有"
+    ),
+    player = player
+)
+```
+
+---
+
+## 配额管理 API
+
+### setWorkspaceQuota
+
+设置玩家的工作空间配额。
+
+```kotlin
+fun setWorkspaceQuota(playerUniqueId: String, quota: Int): Boolean
+```
+
+### addWorkspaceQuota
+
+增加玩家的工作空间配额。
+
+```kotlin
+fun addWorkspaceQuota(playerUniqueId: String, amount: Int): Boolean
+```
+
+### removeWorkspaceQuota
+
+减少玩家的工作空间配额。
+
+```kotlin
+fun removeWorkspaceQuota(playerUniqueId: String, amount: Int): Boolean
+```
+
+\> 注意：如果减少后的配额小于已使用量，操作将失败。
+
+### setSizeQuota
+
+设置玩家的存储配额。
+
+```kotlin
+fun setSizeQuota(playerUniqueId: String, quota: Int): Boolean
+```
+
+### addSizeQuota
+
+增加玩家的存储配额。
+
+```kotlin
+fun addSizeQuota(playerUniqueId: String, amount: Int): Boolean
+```
+
+### removeSizeQuota
+
+减少玩家的存储配额。
+
+```kotlin
+fun removeSizeQuota(playerUniqueId: String, amount: Int): Boolean
+```
+
+### setUnlimited
+
+设置玩家的无限配额状态。
+
+```kotlin
+fun setUnlimited(playerUniqueId: String, unlimited: Boolean): Boolean
+```
+
+### resetQuota
+
+重置玩家配额为默认值。
+
+```kotlin
+fun resetQuota(playerUniqueId: String): Boolean
+```
+
+---
+
+## 自动拾取 API
+
+### getAutoPickups
+
+获取保险库的所有自动拾取规则。
+
+```kotlin
+fun getAutoPickups(vault: Vault): List\<AutoPickup\>
+```
+
+### getAutoPickupsByType
+
+获取指定类型的自动拾取规则。
+
+```kotlin
+fun getAutoPickupsByType(vault: Vault, type: AutoPickupType): List\<AutoPickup\>
+```
+
+**类型：**
+
+- `AutoPickupType.ITEM_PICKUP` - 拾取规则
+- `AutoPickupType.ITEM_NOT_PICKUP` - 不拾取规则
+
+### createAutoPickup
+
+创建自动拾取规则。
+
+```kotlin
+fun createAutoPickup(vault: Vault, type: AutoPickupType, value: String): Result
+```
+
+**参数：**
+
+- `vault` - 保险库对象
+- `type` - 规则类型
+- `value` - 规则值
+
+**规则值格式：**
+
+| 格式 | 说明 |
+
+|------|------|
+
+| `type:MATERIAL` | 匹配材料类型 |
+
+| `name:文字` | 匹配名称包含 |
+
+| `lore:文字` | 匹配 Lore 包含 |
+
+| `regex:正则` | 正则匹配名称 |
+
+| `regex-lore:正则` | 正则匹配 Lore |
+
+| `直接文字` | 默认匹配名称包含 |
+
+**示例：**
+
+```kotlin
+// 拾取所有钻石
+ZephyrionAPI.createAutoPickup(vault, AutoPickupType.ITEM_PICKUP, "type:DIAMOND")
+
+// 拾取名称包含"传说"的物品
+ZephyrionAPI.createAutoPickup(vault, AutoPickupType.ITEM_PICKUP, "name:传说")
+
+// 不拾取圆石
+ZephyrionAPI.createAutoPickup(vault, AutoPickupType.ITEM_NOT_PICKUP, "type:COBBLESTONE")
+```
+
+### updateAutoPickup
+
+更新自动拾取规则的值。
+
+```kotlin
+fun updateAutoPickup(autoPickup: AutoPickup, newValue: String): Result
+```
+
+### deleteAutoPickup
+
+删除自动拾取规则。
+
+```kotlin
+fun deleteAutoPickup(autoPickup: AutoPickup): Boolean
+```
+
+### clearAutoPickups
+
+清空保险库的所有自动拾取规则。
+
+```kotlin
+fun clearAutoPickups(vault: Vault): Int
+```
+
+**返回：**
+
+- 删除的规则数量
+
+### shouldAutoPickup
+
+检查物品是否应该自动拾取。
+
+```kotlin
+fun shouldAutoPickup(itemStack: ItemStack, vault: Vault): Boolean?
+```
+
+**返回：**
+
+- `true` - 物品应该被拾取
+- `false` - 物品不应该被拾取
+- `null` - 没有匹配的规则
+
+**示例：**
+
+```kotlin
+val result = ZephyrionAPI.shouldAutoPickup(item, vault)
+
+when (result) {
+    true -> println("物品将被自动拾取")
+    false -> println("物品被排除，不会拾取")
+    null -> println("没有匹配规则，使用默认行为")
+}
+```
+
+---
+
+## 设置 API
+
+### newSetting
+
+创建保险库设置。
+
+```kotlin
+fun newSetting(vault: Vault, setting: String, value: String)
+```

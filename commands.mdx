@@ -1,0 +1,223 @@
+---
+title: "命令与权限"
+---
+
+## 命令概览
+
+主命令: `/zephyrion` 或 `/ze`
+
+| 命令 | 说明 | 权限 |
+
+|------|------|------|
+
+| `/ze` | 显示帮助信息 | `zephyrion.command` |
+
+| `/ze help` | 显示帮助信息 | `zephyrion.command` |
+
+| `/ze open` | 打开自己的工作空间列表 | `zephyrion.command.open` |
+
+| `/ze open <玩家>` | 打开指定玩家的工作空间列表 | `zephyrion.command.open.other` |
+
+| `/ze open <玩家> <工作空间>` | 打开指定玩家的指定工作空间 | `zephyrion.command.open.other` |
+
+| `/ze open <玩家> <工作空间> <保险库>` | 打开指定保险库 | `zephyrion.command.open.other` |
+
+| `/ze quota` | 查看自己的配额信息 | `zephyrion.command.quota` |
+
+| `/ze quota <玩家>` | 查看指定玩家的配额信息 | `zephyrion.command.quota.other` |
+
+| `/ze quota <玩家> set <类型> <值>` | 设置玩家配额 | `zephyrion.command.quota.edit` |
+
+| `/ze quota <玩家> add <类型> <数量>` | 增加玩家配额 | `zephyrion.command.quota.edit` |
+
+| `/ze quota <玩家> remove <类型> <数量>` | 减少玩家配额 | `zephyrion.command.quota.edit` |
+
+| `/ze quota <玩家> reset` | 重置玩家配额为默认值 | `zephyrion.command.quota.edit` |
+
+| `/ze reload` | 重载插件配置 | `zephyrion.command.reload` |
+
+## 配额管理命令详解
+
+### 查看配额
+
+\`\`\`
+
+/ze quota
+
+\`\`\`
+
+显示当前玩家的配额信息：
+
+- 工作空间数量（已使用/总配额）
+- 存储容量（已使用/总配额）
+- 无限容量状态
+
+### 设置配额
+
+\`\`\`
+
+/ze quota \<玩家\> set \<类型\> \<值\>
+
+\`\`\`
+
+**类型选项：**
+
+- `workspace` - 工作空间配额
+- `size` - 存储容量配额
+- `unlimited` - 无限容量状态 `truefalse`)
+
+**示例：**
+
+\`\`\`
+
+/ze quota Steve set workspace 5
+
+/ze quota Steve set size 1000
+
+/ze quota Steve set unlimited true
+
+\`\`\`
+
+### 增加配额
+
+\`\`\`
+
+/ze quota \<玩家\> add \<类型\> \<数量\>
+
+\`\`\`
+
+**示例：**
+
+\`\`\`
+
+/ze quota Steve add workspace 2
+
+/ze quota Steve add size 100
+
+\`\`\`
+
+### 减少配额
+
+\`\`\`
+
+/ze quota \<玩家\> remove \<类型\> \<数量\>
+
+\`\`\`
+
+\> 注意：如果减少后的配额小于已使用量，操作将失败。
+
+**示例：**
+
+\`\`\`
+
+/ze quota Steve remove workspace 1
+
+/ze quota Steve remove size 50
+
+\`\`\`
+
+### 重置配额
+
+\`\`\`
+
+/ze quota \<玩家\> reset
+
+\`\`\`
+
+将玩家配额重置为 `settings.yml` 中配置的默认值。
+
+## 权限详解
+
+### 基础权限
+
+| 权限节点 | 说明 | 默认 |
+
+|----------|------|------|
+
+| `zephyrion.command` | 使用插件命令 | 所有玩家 |
+
+| `zephyrion.command.open` | 打开自己的工作空间 | 所有玩家 |
+
+| `zephyrion.command.quota` | 查看自己的配额 | 所有玩家 |
+
+### 管理权限
+
+| 权限节点 | 说明 | 默认 |
+
+|----------|------|------|
+
+| `zephyrion.admin` | 管理员权限（可管理所有工作空间和保险库） | OP |
+
+| `zephyrion.command.reload` | 重载配置 | OP |
+
+| `zephyrion.command.open.other` | 打开其他玩家的工作空间 | OP |
+
+| `zephyrion.command.quota.other` | 查看其他玩家的配额 | OP |
+
+| `zephyrion.command.quota.edit` | 编辑玩家配额 | OP |
+
+### 功能权限
+
+| 权限节点 | 说明 | 默认 |
+
+|----------|------|------|
+
+| `zephyrion.auto-pick-items` | 使用自动拾取功能 | OP |
+
+| `zephyrion.auto-replace-tool` | 使用工具自动替换功能 | OP |
+
+### 工作空间创建权限
+
+| 权限节点 | 说明 | 默认 |
+
+|----------|------|------|
+
+| `zephyrion.create-public-workspace` | 创建公共工作空间 | OP |
+
+| `zephyrion.create-private-workspace` | 创建私有工作空间 | OP |
+
+| `zephyrion.create-independent-workspace` | 创建独立工作空间 | OP |
+
+### 配额权限组
+
+| 权限节点 | 说明 |
+
+|----------|------|
+
+| `zephyrion.user.quotas.vip` | VIP 配额组 |
+
+配额权限组用于自动分配配额。当玩家拥有对应权限时，系统会自动应用该组的配额设置。
+
+**配置示例 (settings.yml)：**
+
+\`\`\`yaml
+
+user:
+
+default-quotas:
+
+workspace: 1
+
+size: 200
+
+vip:
+
+workspace: 3
+
+size: 500
+
+\`\`\`
+
+**配置示例 (permissions.yml)：**
+
+\`\`\`yaml
+
+user:
+
+quotas:
+
+vip: [zephyrion.user.quotas.vip](http://zephyrion.user.quotas.vip)
+
+\`\`\`
+
+拥有 `zephyrion.user.quotas.vip` 权限的玩家将自动获得 VIP 配额（3 个工作空间，500 存储容量）。

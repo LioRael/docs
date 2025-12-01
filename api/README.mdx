@@ -1,0 +1,238 @@
+---
+title: "Zephyrion API 开发文档"
+description: "本文档面向希望与 Zephyrion 插件集成的开发者。"
+---
+
+## 文档索引
+
+- [核心 API](./[core-api.md]\(http://core-api.md\)) - ZephyrionAPI 类的所有方法详解
+- [事件系统](./[events.md]\(http://events.md\)) - 自定义事件监听与处理
+- [数据模型](./[models.md]\(http://models.md\)) - Workspace、Vault、Item 等数据结构
+
+## 快速入门
+
+### 添加依赖
+
+在你的 `build.gradle.kts` 中添加 Zephyrion 作为依赖：
+
+```kotlin
+dependencies {
+    compileOnly(files("libs/Zephyrion-1.0.0.jar"))
+}
+```
+
+或在 `plugin.yml` 中声明软依赖：
+
+```yaml
+softdepend: [Zephyrion]
+```
+
+### 获取 API 实例
+
+Zephyrion 的所有 API 通过 `ZephyrionAPI` 对象访问：
+
+```kotlin
+import com.faithl.zephyrion.api.ZephyrionAPI
+
+// 获取玩家数据
+val userData = ZephyrionAPI.getUserData(player.uniqueId.toString())
+
+// 获取工作空间
+val workspaces = ZephyrionAPI.getJoinedWorkspaces(player)
+
+// 创建工作空间
+val result = ZephyrionAPI.createWorkspace(
+    owner = player.uniqueId.toString(),
+    name = "MyWorkspace",
+    type = WorkspaceType.PRIVATE,
+    desc = "描述"
+)
+```
+
+### Result 类
+
+大多数写操作返回 `ZephyrionAPI.Result` 对象：
+
+```kotlin
+data class Result(val success: Boolean, val reason: String? = null)
+```
+
+使用示例：
+
+```kotlin
+val result = ZephyrionAPI.createWorkspace(owner, name, type, desc)
+
+if (result.success) {
+    player.sendMessage("创建成功！")
+} else {
+    player.sendMessage("创建失败：\${result.reason}")
+}
+```
+
+### 常见错误码
+
+| 错误码 | 说明 |
+
+|--------|------|
+
+| `workspace_name_invalid` | 工作空间名称无效（空或含空格） |
+
+| `workspace_name_color` | 名称包含颜色代码 |
+
+| `workspace_name_blacklist` | 名称在黑名单中 |
+
+| `workspace_name_length` | 名称长度不符合要求 |
+
+| `workspace_already_exists` | 工作空间已存在 |
+
+| `workspace_quota_exceeded` | 工作空间配额已满 |
+
+| `workspace_type_invalid` | 工作空间类型无效 |
+
+| `vault_name_invalid` | 保险库名称无效 |
+
+| `vault_name_color` | 名称包含颜色代码 |
+
+| `vault_name_blacklist` | 名称在黑名单中 |
+
+| `vault_name_length` | 名称长度不符合要求 |
+
+| `vault_already_exists` | 保险库已存在 |
+
+| `auto_pickup_value_empty` | 自动拾取规则值为空 |
+
+| `auto_pickup_already_exists` | 自动拾取规则已存在 |
+
+## 核心功能概览
+
+### 工作空间管理
+
+```kotlin
+// 获取玩家加入的工作空间
+val workspaces = ZephyrionAPI.getJoinedWorkspaces(player)
+
+// 获取独立工作空间
+val independent = ZephyrionAPI.getIndependentWorkspace()
+
+// 获取指定工作空间
+val workspace = ZephyrionAPI.getWorkspace(playerUUID, "workspaceName")
+
+// 创建工作空间
+val result = ZephyrionAPI.createWorkspace(owner, name, type, desc)
+
+// 添加/移除成员
+ZephyrionAPI.addMember(workspace, player)
+ZephyrionAPI.removeMember(workspace, offlinePlayer)
+
+// 更新/删除工作空间
+ZephyrionAPI.updateWorkspaceDesc(workspace, "新描述")
+ZephyrionAPI.deleteWorkspace(workspace)
+```
+
+### 保险库管理
+
+```kotlin
+// 获取工作空间的保险库
+val vaults = ZephyrionAPI.getVaults(workspace)
+
+// 获取指定保险库
+val vault = ZephyrionAPI.getVault(workspace, "vaultName")
+
+// 创建保险库
+val result = ZephyrionAPI.createVault(workspace, name, desc)
+
+// 容量管理
+ZephyrionAPI.addSize(vault, 36)  // 增加 36 个槽位
+ZephyrionAPI.removeSize(vault, 36)  // 减少 36 个槽位
+
+// 更新/删除保险库
+ZephyrionAPI.updateVaultDesc(vault, "新描述")
+ZephyrionAPI.deleteVault(vault)
+```
+
+### 物品管理
+
+```kotlin
+// 获取指定页的物品
+val items = ZephyrionAPI.getItems(vault, page, player)
+
+// 设置/移除物品
+ZephyrionAPI.setItem(vault, page, slot, itemStack, player)
+ZephyrionAPI.removeItem(vault, page, slot, player)
+
+// 搜索物品
+val byName = ZephyrionAPI.searchItemsByName(vault, "Diamond")
+val byLore = ZephyrionAPI.searchItemsByLore(vault, "Rare")
+val combined = ZephyrionAPI.searchItems(vault, mapOf("name" to "Diamond", "lore" to "Rare"), player)
+```
+
+### 配额管理
+
+```kotlin
+// 获取用户配额数据
+val quota = ZephyrionAPI.getUserData(playerUUID)
+
+// 设置配额
+ZephyrionAPI.setWorkspaceQuota(playerUUID, 5)
+ZephyrionAPI.setSizeQuota(playerUUID, 1000)
+ZephyrionAPI.setUnlimited(playerUUID, true)
+
+// 增减配额
+ZephyrionAPI.addWorkspaceQuota(playerUUID, 2)
+ZephyrionAPI.addSizeQuota(playerUUID, 100)
+ZephyrionAPI.removeWorkspaceQuota(playerUUID, 1)
+ZephyrionAPI.removeSizeQuota(playerUUID, 50)
+
+// 重置配额
+ZephyrionAPI.resetQuota(playerUUID)
+```
+
+### 自动拾取
+
+```kotlin
+// 获取自动拾取规则
+val rules = ZephyrionAPI.getAutoPickups(vault)
+val pickupRules = ZephyrionAPI.getAutoPickupsByType(vault, AutoPickupType.ITEM_PICKUP)
+
+// 创建规则
+ZephyrionAPI.createAutoPickup(vault, AutoPickupType.ITEM_PICKUP, "type:DIAMOND")
+
+// 更新/删除规则
+ZephyrionAPI.updateAutoPickup(autoPickup, "name:钻石剑")
+ZephyrionAPI.deleteAutoPickup(autoPickup)
+ZephyrionAPI.clearAutoPickups(vault)
+
+// 检查物品是否匹配规则
+val shouldPickup = ZephyrionAPI.shouldAutoPickup(itemStack, vault)
+
+// 返回值：true=拾取, false=不拾取, null=无匹配规则
+```
+
+## 事件监听示例
+
+```kotlin
+import [com.faithl.zephyrion.api.events](http://com.faithl.zephyrion.api.events).\*
+import taboolib.common.platform.event.SubscribeEvent
+
+object MyListener {
+    @SubscribeEvent
+    fun onVaultOpen(event: VaultOpenEvent) {
+        val player = event.opener
+        val vault = event.vault
+        player.sendMessage("你打开了保险库: \${[vault.name](http://vault.name)}")
+    }
+
+    @SubscribeEvent
+    fun onItemAdd(event: VaultAddItemEvent) {
+        val item = event.itemStack
+        println("物品 \${item.type} 被添加到保险库 \${[event.vault.name](http://event.vault.name)}")
+    }
+}
+```
+
+## 注意事项
+
+1. **异步操作**：大部分数据库操作是异步执行的，避免在主线程进行大量查询
+2. **缓存机制**：Zephyrion 使用缓存系统，数据修改会自动更新缓存
+3. **配额检查**：创建工作空间或扩展保险库前会自动检查配额
+4. **乐观锁**：配额更新使用乐观锁机制防止并发问题

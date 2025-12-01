@@ -1,0 +1,280 @@
+---
+title: "安装与配置"
+---
+
+## 系统要求
+
+- Minecraft 服务器: Spigot/Paper 1.16+
+- Java: 8 或更高版本
+
+## 安装步骤
+
+1. 下载最新版本的 Zephyrion 插件
+2. 将 `.jar` 文件放入服务器的 `plugins` 目录
+3. 启动服务器，插件会自动生成配置文件
+4. 根据需要修改配置文件
+5. 执行 `/zephyrion reload` 或重启服务器
+
+## 配置文件
+
+配置文件位于 `plugins/Zephyrion/settings.yml`
+
+### 数据库配置
+
+\`\`\`yaml
+
+database:
+
+# 数据库类型: mysql 或 sqlite
+
+type: sqlite
+
+# MySQL 配置 (仅当 type 为 mysql 时生效)
+
+host: [localhost](http://localhost)
+
+port: 3306
+
+name: database
+
+username: root
+
+password: password
+
+\`\`\`
+
+#### SQLite (默认)
+
+无需额外配置，数据存储在 `plugins/Zephyrion/zephyrion.db`
+
+#### MySQL
+
+\`\`\`yaml
+
+database:
+
+type: mysql
+
+host: 127.0.0.1
+
+port: 3306
+
+name: zephyrion
+
+username: your_username
+
+password: your_password
+
+\`\`\`
+
+### 缓存配置
+
+\`\`\`yaml
+
+cache:
+
+# 缓存类型: memory 或 redis
+
+type: memory
+
+# 缓存过期时间（毫秒），默认 5 分钟
+
+ttl: 300000
+
+# 缓存键前缀
+
+key-prefix: zephyrion
+
+\`\`\`
+
+#### 内存缓存 (默认)
+
+适合单服务器环境，无需额外配置。
+
+#### Redis 缓存
+
+适合多服务器/群组服环境，需要配置 Redis 连接：
+
+\`\`\`yaml
+
+cache:
+
+type: redis
+
+ttl: 300000
+
+key-prefix: zephyrion
+
+redis:
+
+host: [localhost](http://localhost)
+
+port: 6379
+
+password: ""
+
+ssl: false
+
+timeout: PT15S
+
+database: 0
+
+autoReconnect: true
+
+pingBeforeActivateConnection: true
+
+pool:
+
+maxTotal: 8
+
+maxIdle: 8
+
+minIdle: 0
+
+\`\`\`
+
+### 工作空间配置
+
+\`\`\`yaml
+
+workspace:
+
+# 是否启用公共工作空间
+
+independent: false
+
+name:
+
+# 是否允许颜色代码
+
+allow-color: false
+
+# 名称长度限制
+
+min-length: 3
+
+max-length: 16
+
+# 名称黑名单
+
+blacklist:
+
+- independent
+- banned
+- name
+- list
+- here
+
+\`\`\`
+
+### 保险库配置
+
+\`\`\`yaml
+
+vault:
+
+name:
+
+allow-color: false
+
+min-length: 3
+
+max-length: 16
+
+blacklist:
+
+- banned
+- name
+- list
+- here
+
+\`\`\`
+
+### 用户配额配置
+
+\`\`\`yaml
+
+user:
+
+# 默认配额
+
+default-quotas:
+
+unlimited: false      # 是否无限容量
+
+workspace: 1          # 可创建的工作空间数量
+
+size: 200            # 总存储槽位数
+
+# VIP 配额组
+
+vip:
+
+unlimited: false
+
+workspace: 3
+
+size: 500
+
+\`\`\`
+
+## 权限配置
+
+权限配置位于 `plugins/Zephyrion/permissions.yml`
+
+\`\`\`yaml
+
+# 自动拾取权限
+
+auto-pick-items: [zephyrion.auto](http://zephyrion.auto)-pick-items
+
+# 工具自动替换权限
+
+auto-replace-tool: [zephyrion.auto](http://zephyrion.auto)-replace-tool
+
+# 工作空间创建权限
+
+create-public-workspace: zephyrion.create-public-workspace
+
+create-private-workspace: zephyrion.create-private-workspace
+
+create-independent-workspace: zephyrion.create-independent-workspace
+
+# 管理员权限
+
+admin: zephyrion.admin
+
+# 命令权限
+
+command:
+
+reload: zephyrion.command.reload
+
+open: [zephyrion.command.open](http://zephyrion.command.open)
+
+open-other: [zephyrion.command.open](http://zephyrion.command.open).other
+
+quota: zephyrion.command.quota
+
+quota-other: zephyrion.command.quota.other
+
+quota-edit: zephyrion.command.quota.edit
+
+# 配额权限组
+
+user:
+
+quotas:
+
+vip: [zephyrion.user.quotas.vip](http://zephyrion.user.quotas.vip)
+
+\`\`\`
+
+## 多语言支持
+
+语言文件位于 `plugins/Zephyrion/lang/` 目录：
+
+- `zh_CN.yml` - 简体中文
+- `en_US.yml` - 英语
+
+插件会根据服务器配置自动选择语言。
